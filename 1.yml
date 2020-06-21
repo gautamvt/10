@@ -1,0 +1,160 @@
+resources:
+    repositories:
+      - repository: templates
+        type: git
+        name: templates
+        ref: master
+   
+  stages:
+  - stage: BuildTerraform
+    jobs:
+    - job: BuildConfig
+  
+      steps:
+      - checkout: templates
+  
+      - template: Production\aci-prod-sampleapp2.yml
+  
+      - task: PublishBuildArtifacts@1
+        inputs:
+          PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+          ArtifactName: 'TerraformConfig'
+          publishLocation: 'Container'
+
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+    - master
+    
+    pool:
+      vmImage: 'ubuntu-latest'
+    
+    steps:
+    - script: echo Hello, world!
+      displayName: 'Run a one-line script'
+    
+    - script: |
+        echo Add other tasks to build, test, and deploy your project.
+        echo See https://aka.ms/yaml
+      displayName: 'Run a multi-line script'
+
+      
+      steps:
+
+        #Build Resource Group
+        - template: azure-aci-rg.yml@templates 
+          parameters:
+              ResourceGroup: 'rg-sampleapp1-dev'
+              Location: 'WestUS'
+        
+        #Build Azure Container Group
+        - template: azure-aci-container.yml@templates
+          parameters:
+            ContainerGroupName: 'sampleapp1'
+            DNSName: 'cloudskillsexampleapp1'
+            OS: 'Linux'
+            ContainerName: 'helloworld'
+            Image: 'microsoft/aci-helloworld:latest'
+            CPU: '0.5'
+            Memory: '1.5'
+            Port: '80'
+            Protocol: 'TCP'
+        
+
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+    - master
+    
+    pool:
+      vmImage: 'ubuntu-latest'
+    
+    steps:
+    - script: echo Hello, world!
+      displayName: 'Run a one-line script'
+    
+    - script: |
+        echo Add other tasks to build, test, and deploy your project.
+        echo See https://aka.ms/yaml
+      displayName: 'Run a multi-line script'
+
+# File: templates/azure-aci-rg.yml
+parameters:
+    ResourceGroup: ''
+    Location: ''  
+  
+  steps:
+      - task: CmdLine@2
+        inputs:
+          script: |
+            echo "##vso[task.setvariable variable=ResourceGroup]${{ parameters.ResourceGroup }}"
+            echo "##vso[task.setvariable variable=Location]${{ parameters.Location }}"
+  
+      - task: CopyFiles@2
+        displayName: 'Copy main config file to artifacts'
+        inputs:
+         SourceFolder: 'Terraform/ACI'
+         TargetFolder: '$(Build.ArtifactStagingDirectory)'
+         contents: main.tf
+  
+      - task: replacetokens@3
+        displayName: 'Replace tokens in main.tf file'
+        inputs:
+          rootDirectory: '$(Build.ArtifactStagingDirectory)'
+          targetFiles: '**/main.tf'
+          escapeType: none
+          tokenPrefix: '__'
+          tokenSuffix: '__'
+
+# File: templates/azure-aci-container.yml
+parameters:
+    ContainerGroupName: ''
+    DNSName: ''  
+    OS: ''  
+    ContainerName: ''  
+    Image: ''
+    CPU: ''
+    Memory: ''
+    Port: ''
+    Protocol: ''
+  
+  steps:
+    - task: CmdLine@2
+      inputs:
+        script: |
+          echo "##vso[task.setvariable variable=ContainerGroupName]${{ parameters.ContainerGroupName }}"
+          echo "##vso[task.setvariable variable=DNSName]${{ parameters.DNSName }}"
+          echo "##vso[task.setvariable variable=OS]${{ parameters.OS }}"
+          echo "##vso[task.setvariable variable=ContainerName]${{ parameters.ContainerName }}"
+          echo "##vso[task.setvariable variable=Image]${{ parameters.Image }}"
+          echo "##vso[task.setvariable variable=CPU]${{ parameters.CPU }}"
+          echo "##vso[task.setvariable variable=Memory]${{ parameters.Memory }}"
+          echo "##vso[task.setvariable variable=Port]${{ parameters.Port }}"
+          echo "##vso[task.setvariable variable=Protocol]${{ parameters.Protocol }}"
+  
+    - task: CopyFiles@2
+      displayName: 'Copy Azure Container Group config to Artifacts'
+      inputs:
+        SourceFolder: 'Terraform/ACI'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+        contents: container.tf
+  
+    - task: replacetokens@3
+      displayName: 'Replace tokens in container.tf file'
+      inputs:
+        rootDirectory: '$(Build.ArtifactStagingDirectory)'
+        targetFiles: '**/container.tf'
+        escapeType: none
+        tokenPrefix: '__'
+        tokenSuffix: '__'
+  
+    - task: CmdLine@2
+      displayName: 'Rename container.tf file'
+      inputs:
+        script: 'mv "$(Build.ArtifactStagingDirectory)/container.tf" "$(Build.ArtifactStagingDirectory)/${{ parameters.ContainerGroupName }}.tf"'
