@@ -1,0 +1,20 @@
+steps:
+
+#Build Resource Group
+- template: azure-aci-rg.yml@templates 
+  parameters:
+      ResourceGroup: 'rg-sampleapp1-prod'
+      Location: 'WestUS'
+
+#Build Azure Container Group
+- template: azure-aci-container.yml@templates
+  parameters:
+    ContainerGroupName: 'sampleapp1'
+    DNSName: 'cloudskillssampleapp1'
+    OS: 'Linux'
+    ContainerName: 'helloworld'
+    Image: 'microsoft/aci-helloworld:latest'
+    CPU: '0.5'
+    Memory: '1.5'
+    Port: '80'
+    Protocol: 'TCP'
